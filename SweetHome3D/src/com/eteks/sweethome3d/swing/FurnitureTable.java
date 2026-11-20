@@ -61,6 +61,7 @@ import java.util.Set;
 
 import javax.swing.BorderFactory;
 import javax.swing.Icon;
+import javax.swing.DefaultListSelectionModel;
 import javax.swing.ImageIcon;
 import javax.swing.JCheckBox;
 import javax.swing.JEditorPane;
@@ -800,13 +801,12 @@ public class FurnitureTable extends JTable implements View, Printable {
     if (EventQueue.isDispatchThread()) {
       TableColumnModel oldColumnModel = getColumnModel();
       Color oldGridColor = getGridColor();
-      FurnitureFilter oldFilter = getFurnitureFilter();
+      ListSelectionModel oldSelection = getSelectionModel();
+      FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
       try {
-        // The table model already excludes furniture on non-viewable levels.
-        if (oldFilter != null) {
-          getSelectionModel().removeListSelectionListener(this.tableSelectionListener);
-          setFurnitureFilter(null);
-        }
+        // Keep the live row selection intact while group contents change the print row indices.
+        setSelectionModel(new DefaultListSelectionModel());
+        tableModel.setPrintingAllFurniture(true);
         setColumnModel(printableColumnModel);
         updateTableColumnsWidth(OperatingSystem.isWindows() ? 3 : 0);
         setGridColor(gridColor);
@@ -814,12 +814,8 @@ public class FurnitureTable extends JTable implements View, Printable {
       } finally {
         setColumnModel(oldColumnModel);
         setGridColor(oldGridColor);
-        if (oldFilter != null) {
-          setFurnitureFilter(oldFilter);
-          if (this.tableSelectionListener != null) {
-            updateTableSelectedFurniture(((FurnitureTreeTableModel)getModel()).home);
-          }
-        }
+        tableModel.setPrintingAllFurniture(false);
+        setSelectionModel(oldSelection);
       }
     } else {
       // Print synchronously table in Event Dispatch Thread
@@ -1999,6 +1995,7 @@ public class FurnitureTable extends JTable implements View, Printable {
     private List<HomePieceOfFurniture>              filteredAndSortedFurniture;
     private FurnitureFilter                         furnitureFilter;
     private Set<HomeFurnitureGroup>                 expandedGroups;
+    private boolean                                 printingAllFurniture;
     private List<TreeModelListener>                 treeModelListeners;
     private Map<Object, List<HomePieceOfFurniture>> childFurnitureCache;  
     private boolean                                 containsNotViewableFurniture;
@@ -2172,6 +2169,11 @@ public class FurnitureTable extends JTable implements View, Printable {
       fireTreeModelChanged();
     }
 
+    private void setPrintingAllFurniture(boolean printing) {
+      this.printingAllFurniture = printing;
+      filterAndSortFurniture();
+    }
+
     /**
      * Returns a filtered and sorted list of the given <code>furniture</code>.
      */
@@ -2187,7 +2189,7 @@ public class FurnitureTable extends JTable implements View, Printable {
       }
       
       List<HomePieceOfFurniture> filteredAndSortedFurniture;
-      if (this.furnitureFilter == null) {
+      if (this.printingAllFurniture || this.furnitureFilter == null) {
         filteredAndSortedFurniture = viewableFurniture;
       } else {
         // Create the filtered list of home furniture
@@ -2207,8 +2209,7 @@ public class FurnitureTable extends JTable implements View, Printable {
         // Add furniture of expanded groups
         for (int i = filteredAndSortedFurniture.size() - 1; i >= 0; i--) {
           HomePieceOfFurniture piece = filteredAndSortedFurniture.get(i);
-          if (piece instanceof HomeFurnitureGroup 
-              && this.expandedGroups.contains(piece)) {
+          if (isGroupExpanded(piece)) {
             filteredAndSortedFurniture.addAll(i + 1, 
                 getFilteredAndSortedFurniture(((HomeFurnitureGroup)piece).getFurniture(), true));
           }
@@ -2317,7 +2318,12 @@ public class FurnitureTable extends JTable implements View, Printable {
      * Returns <code>true</code> if the furniture group at the given row should be expanded.
      */
     public boolean isRowExpanded(int rowIndex) {
-      return this.expandedGroups.contains(this.filteredAndSortedFurniture.get(rowIndex));
+      return isGroupExpanded(this.filteredAndSortedFurniture.get(rowIndex));
+    }
+
+    private boolean isGroupExpanded(HomePieceOfFurniture piece) {
+      return piece instanceof HomeFurnitureGroup
+          && (this.printingAllFurniture || this.expandedGroups.contains(piece));
     }
     
     /**

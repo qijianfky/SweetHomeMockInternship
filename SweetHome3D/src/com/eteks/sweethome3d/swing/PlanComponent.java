@@ -2021,11 +2021,16 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
       return NO_SUCH_PAGE;
     }
     Level previousLevel = this.home.getSelectedLevel();
+    List<Selectable> selectedItems = this.home.getSelectedItems();
     try {
       this.home.setSelectedLevel(level);
       return printSelectedLevel(g, pageFormat, 0, true);
     } finally {
       this.home.setSelectedLevel(previousLevel);
+      // A level-change listener may have deselected furniture on another floor.
+      if (!selectedItems.equals(this.home.getSelectedItems())) {
+        this.home.setSelectedItems(selectedItems);
+      }
     }
   }
 
