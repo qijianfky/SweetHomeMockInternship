@@ -1376,7 +1376,9 @@ public class HomePane extends JRootPane implements HomeView {
           }
         }); 
       // Configure check box menu item action after setting its model to avoid losing its mnemonic
-      sortMenuItem.setAction(new ResourceAction.MenuItemAction(sortAction));
+      // Keep the Volume tooltip on macOS too, where MenuItemAction hides tooltips.
+      sortMenuItem.setAction(furnitureProperty == HomePieceOfFurniture.SortableProperty.VOLUME
+          ? sortAction : new ResourceAction.MenuItemAction(sortAction));
       sortMenu.add(sortMenuItem);
       sortButtonGroup.add(sortMenuItem);
     }
