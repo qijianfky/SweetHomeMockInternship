@@ -182,6 +182,7 @@ import com.eteks.sweethome3d.model.HomeDoorOrWindow;
 import com.eteks.sweethome3d.model.HomeFurnitureGroup;
 import com.eteks.sweethome3d.model.HomeLight;
 import com.eteks.sweethome3d.model.HomePieceOfFurniture;
+import com.eteks.sweethome3d.model.HomePrint;
 import com.eteks.sweethome3d.model.HomeTexture;
 import com.eteks.sweethome3d.model.Label;
 import com.eteks.sweethome3d.model.LengthUnit;
@@ -2008,6 +2009,32 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
    * that makes it fill <code>pageFormat</code> imageable size if this attribute is <code>null</code>.
    */
   public int print(Graphics g, PageFormat pageFormat, int pageIndex) {
+    if (pageIndex < 0) {
+      return NO_SUCH_PAGE;
+    }
+    if (this.home.getLevels().isEmpty()) {
+      // Homes without explicit levels retain their original print layout.
+      return printSelectedLevel(g, pageFormat, pageIndex, false);
+    }
+    for (Level level : this.home.getLevels()) {
+      if (!level.isViewable()) {
+        continue;
+      }
+      if (pageIndex == 0) {
+        Level previousLevel = this.home.getSelectedLevel();
+        try {
+          this.home.setSelectedLevel(level);
+          return printSelectedLevel(g, pageFormat, 0, true);
+        } finally {
+          this.home.setSelectedLevel(previousLevel);
+        }
+      }
+      pageIndex--;
+    }
+    return NO_SUCH_PAGE;
+  }
+
+  private int printSelectedLevel(Graphics g, PageFormat pageFormat, int pageIndex, boolean singlePage) {
     List<Selectable> printedItems = getPaintedItems(); 
     Rectangle2D printedItemBounds = getItemsBounds(g, printedItems);
     if (printedItemBounds != null) {
@@ -2020,9 +2047,13 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
       float columnIndex;
       int pagesPerRow;
       int pagesPerColumn;
-      if (this.home.getPrint() == null || this.home.getPrint().getPlanScale() == null) {
-        // Compute a scale that ensures the plan will fill the component if plan scale is null
-        printScale = getPrintPreferredScale(g, pageFormat) * LengthUnit.centimeterToInch(72);
+      HomePrint homePrint = this.home.getPrint();
+      if (singlePage || homePrint == null || homePrint.getPlanScale() == null) {
+        float preferredScale = getPrintPreferredScale(g, pageFormat);
+        if (homePrint != null && homePrint.getPlanScale() != null) {
+          preferredScale = Math.min(preferredScale, homePrint.getPlanScale());
+        }
+        printScale = preferredScale * LengthUnit.centimeterToInch(72);
         if (pageIndex > 0) {
           return NO_SUCH_PAGE;
         }
@@ -2071,7 +2102,7 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
       g2D.dispose();
       return PAGE_EXISTS;
     } else {
-      return NO_SUCH_PAGE;
+      return singlePage ? PAGE_EXISTS : NO_SUCH_PAGE;
     }
   }
   
