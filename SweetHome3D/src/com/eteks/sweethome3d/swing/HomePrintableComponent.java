@@ -48,6 +48,7 @@ import javax.swing.JLabel;
 
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomePrint;
+import com.eteks.sweethome3d.model.Level;
 import com.eteks.sweethome3d.model.LengthUnit;
 import com.eteks.sweethome3d.viewcontroller.ContentManager;
 import com.eteks.sweethome3d.viewcontroller.HomeController;
@@ -276,10 +277,12 @@ public class HomePrintableComponent extends JComponent implements Printable {
         if (homeName == null) {
           homeName = "";
         }
-        String levelName = "";
-        if (this.home.getSelectedLevel() != null) {
-          levelName = this.home.getSelectedLevel().getName();
+        Level pageLevel = this.home.getSelectedLevel();
+        int planPage = page - this.furniturePageCount;
+        if (planPage >= 0 && planPage < this.planPageCount && !this.home.getLevels().isEmpty()) {
+          pageLevel = PlanComponent.getPrintedLevel(this.home, planPage);
         }
+        String levelName = pageLevel == null ? "" : pageLevel.getName();
         String homePresentationName = this.controller.getContentManager().getPresentationName(
              homeName, ContentManager.ContentType.SWEET_HOME_3D);
         Object [] variableValues = new Object [] {
